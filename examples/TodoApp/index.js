@@ -117,10 +117,12 @@
 
 	        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(TodoApp).call(this, element));
 
-	        element.appendChild(_DON2.default.toDOM(domTransform.apply({ element: 'todoapp' })));
+	        element.dataset.instance = _this.constructor.name;
+	        element.appendChild(_DON2.default.toDOM(domTransform.apply(_this.load())));
 	        element.querySelector('form').addEventListener('submit', _this.onSubmit.bind(_this));
 	        _this.list = element.querySelector('ul');
-	        _this.attach(_Button2.default, _TextBox2.default, _CheckBox2.default, TodoItem);
+	        _this.attach(_Button2.default, _TextBox2.default, _CheckBox2.default);
+	        _this.findAll(TodoItem);
 	        return _this;
 	    }
 
@@ -143,10 +145,30 @@
 	            var textbox = this.find(_TextBox2.default);
 	            var text = textbox.value.trim();
 	            if (text) {
-	                this.list.appendChild(_DON2.default.toDOM(domTransform.apply({ element: 'todoitem', text: text })));
+	                var element = _DON2.default.toDOM(domTransform.apply({ element: 'todoitem', text: text }));
+	                TodoItem.getInstance(this.list.appendChild(element));
 	                textbox.value = '';
-	            } else textbox.element.focus();
+	                this.save();
+	            } else textbox.focus();
 	            event.preventDefault();
+	        }
+	    }, {
+	        key: 'save',
+	        value: function save() {
+	            localStorage.setItem('TodoApp', JSON.stringify({
+	                element: 'todoapp',
+	                items: this.findAll(TodoItem).map(function (_ref) {
+	                    var text = _ref.text;
+	                    var done = _ref.done;
+	                    return { element: 'todoitem', text: text, done: done };
+	                })
+	            }));
+	        }
+	    }, {
+	        key: 'load',
+	        value: function load() {
+	            var storage = localStorage.getItem('TodoApp');
+	            return storage ? JSON.parse(storage) : { element: 'todoapp', items: [] };
 	        }
 	    }]);
 
@@ -161,6 +183,11 @@
 
 	        var _this3 = _possibleConstructorReturn(this, Object.getPrototypeOf(TodoItem).call(this, element));
 
+	        _this3.app = _this3.closest(TodoApp);
+	        _this3.checkbox = _this3.find(_CheckBox2.default).on('change', function () {
+	            return _this3.app.save();
+	        });
+	        _this3.find(_Button2.default).on('click', _this3.onButtonClick, _this3);
 	        _this3.dialog = _Dialog2.default.getInstance(document.getElementById('removeitemconfirm'));
 	        _this3.onDialogSubmit = _this3.onDialogSubmit.bind(_this3);
 	        return _this3;
@@ -176,7 +203,7 @@
 	    }, {
 	        key: 'onButtonClick',
 	        value: function onButtonClick() {
-	            if (this.find(_CheckBox2.default).checked === 'true') this.remove();else {
+	            if (this.done === 'true') this.remove();else {
 	                this.dialog.trigger = this;
 	                this.expanded = 'true';
 	            }
@@ -184,12 +211,13 @@
 	    }, {
 	        key: 'remove',
 	        value: function remove() {
-	            this.element.closest('ul').removeChild(this.element);
+	            this.element.parentElement.removeChild(this.element);
+	            this.app.save();
 	        }
 	    }, {
 	        key: 'focus',
 	        value: function focus() {
-	            this.find(_Button2.default).focus();
+	            this.checkbox.focus();
 	        }
 	    }, {
 	        key: 'expanded',
@@ -208,19 +236,15 @@
 	                }
 	            }
 	        }
-	    }], [{
-	        key: 'attachTo',
-	        value: function attachTo(node) {
-	            var _this4 = this;
-
-	            node.addEventListener('click', function (event) {
-	                var target = event.target;
-	                var button = _Button2.default.getInstance(target);
-	                if (button && button.type === 'remove') {
-	                    var item = _this4.getInstance(target.closest('[data-instance=TodoItem]'));
-	                    if (item) item.onButtonClick(event);
-	                }
-	            });
+	    }, {
+	        key: 'text',
+	        get: function get() {
+	            return this.element.querySelector('.text').textContent;
+	        }
+	    }, {
+	        key: 'done',
+	        get: function get() {
+	            return this.checkbox.checked;
 	        }
 	    }]);
 
@@ -238,10 +262,15 @@
 	});
 
 	// write application templates
-	domTransform.element('todoapp', function () {
+	domTransform.element('todoapp', function (_ref2) {
+	    var items = _ref2.items;
+
 	    return this.apply({
 	        element: 'main',
-	        content: [{ element: 'h2', content: 'TODO list' }, { element: 'ul' }, {
+	        content: [{ element: 'h2', content: 'TODO list' }, {
+	            element: 'ul',
+	            content: items
+	        }, {
 	            element: 'form',
 	            content: [{
 	                element: 'textbox',
@@ -261,9 +290,9 @@
 	        }]
 	    });
 	});
-	domTransform.element('confirmdialog', function (_ref) {
-	    var attributes = _ref.attributes;
-	    var content = _ref.content;
+	domTransform.element('confirmdialog', function (_ref3) {
+	    var attributes = _ref3.attributes;
+	    var content = _ref3.content;
 
 	    return this.apply({
 	        element: 'dialog',
@@ -282,15 +311,16 @@
 	        }
 	    });
 	});
-	domTransform.element('todoitem', function (_ref2) {
-	    var text = _ref2.text;
+	domTransform.element('todoitem', function (_ref4) {
+	    var text = _ref4.text;
+	    var done = _ref4.done;
 
-	    return this.apply({
+	    return {
 	        element: 'li',
 	        attributes: { 'data-instance': 'TodoItem', 'aria-haspopup': 'true' },
-	        content: [{
+	        content: this.apply([{
 	            element: 'checkbox',
-	            attributes: { title: 'Mark as "done"' }
+	            attributes: { checked: done, title: 'Mark as "done"' }
 	        }, {
 	            element: 'span',
 	            attributes: { 'class': 'text' },
@@ -299,8 +329,8 @@
 	            element: 'button',
 	            attributes: { view: 'removebutton', type: 'remove', title: 'Remove' },
 	            content: '×'
-	        }]
-	    });
+	        }])
+	    };
 	});
 
 	// init app
@@ -334,11 +364,13 @@
 	        key: 'on',
 	        value: function on(type, listener, context) {
 	            this.element.addEventListener(type, listener.bind(context || this));
+	            return this;
 	        }
 	    }, {
 	        key: 'emit',
 	        value: function emit(type) {
 	            this.element.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+	            return this;
 	        }
 	    }, {
 	        key: 'find',
@@ -392,6 +424,16 @@
 	        key: 'closestInstance',
 	        value: function closestInstance(element) {
 	            return this.getInstance(element.closest('[data-instance=' + this.name + ']'));
+	        }
+	    }, {
+	        key: 'on',
+	        value: function on(type, listener, context) {
+	            var _this = this;
+
+	            document.addEventListener(type, function (event) {
+	                var instance = context ? context.closestInstance(event.target) : _this.closestInstance(event.target);
+	                if (instance) listener.call(instance, event);
+	            }, true);
 	        }
 	    }]);
 
@@ -635,6 +677,11 @@
 	            this.element.classList.remove('focus');
 	        }
 	    }, {
+	        key: 'focus',
+	        value: function focus() {
+	            this.input.focus();
+	        }
+	    }, {
 	        key: 'disabled',
 	        get: function get() {
 	            return String(this.input.disabled);
@@ -753,6 +800,11 @@
 	                this.checked = String(this.checked === 'false');
 	                this.element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
 	            }
+	        }
+	    }, {
+	        key: 'focus',
+	        value: function focus() {
+	            this.element.focus();
 	        }
 	    }, {
 	        key: 'checked',
