@@ -19,5 +19,5 @@ module.exports = {
     resolve: {
         modulesDirectories: ['node_modules']
     },
-    watch : true
+    watch : false
 };
